@@ -6,7 +6,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from scipy.interpolate import griddata
 from matplotlib import cm
 
-def load_all_data(folder_path='bf-bulb'):
+def load_all_data(folder_path='bf-gv'):
     """Load all CSV files and combine them with head information"""
     folder = Path(folder_path)
     all_data = []
@@ -291,7 +291,7 @@ def main():
     print("TRADITIONAL OPERATING HILL CHART GENERATOR")
     print("="*70)
     print("\nLoading data from bf-bulb folder...")
-    df = load_all_data('bf-bulb')
+    df = load_all_data('bf-gv')
     print(f"Loaded {len(df)} data points from {df['Head'].nunique()} different heads")
     print(f"\nOperating Range:")
     print(f"  Discharge: {df['Dischargem'].min():.3f} - {df['Dischargem'].max():.3f} m³/s")
