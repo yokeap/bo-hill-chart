@@ -114,7 +114,7 @@ def simulate_bayesian_sampling(df, n_initial=5, n_iterations=25, metric='Overall
     
     return sampled_indices, y_pred, y_std
 
-def simulate_random_sampling(df, n_samples=30, metric='Overall Eff', seed=42):
+def simulate_random_sampling(df, n_samples=30, metric='Overall Eff', seed=30):
     """Random sampling baseline"""
     np.random.seed(seed)
     sampled_indices = np.random.choice(len(df), size=n_samples, replace=False).tolist()
@@ -803,7 +803,7 @@ def main():
     
     # Parameters
     n_initial = 5
-    n_iterations = 10
+    n_iterations = 25
     n_samples = n_initial + n_iterations
     
     print(f"\n{'='*70}")

@@ -88,8 +88,8 @@ def create_traditional_hill_chart_3d(df, metric='Overall Eff', figsize=(16, 12))
     
     # Highlight BEP
     ax.scatter([bep_discharge], [bep_head], [bep_efficiency], 
-              c='red', marker='*', s=1000, edgecolors='black', 
-              linewidths=3, label='BEP', zorder=10)
+              c='red', marker='*', s=300, edgecolors='black', 
+              linewidths=1, label='BEP', zorder=10)
     
     # Add vertical line from BEP to base
     ax.plot([bep_discharge, bep_discharge], 
@@ -112,7 +112,7 @@ def create_traditional_hill_chart_3d(df, metric='Overall Eff', figsize=(16, 12))
     ax.legend(loc='upper left', fontsize=8, ncol=2, framealpha=0.95)
     
     # Set viewing angle for better visualization
-    ax.view_init(elev=25, azim=225)
+    ax.view_init(elev=30, azim=-54)
     
     plt.tight_layout()
     return fig, ax
@@ -298,38 +298,45 @@ def main():
     print(f"  Head: {df['Head'].min():.1f} - {df['Head'].max():.1f} m")
     print(f"  Guide Vane Angle: {df['G/V degree'].min():.1f}° - {df['G/V degree'].max():.1f}°")
     print(f"  Overall Efficiency: {df['Overall Eff'].min():.4f} - {df['Overall Eff'].max():.4f}")
-    
+    # Ensure output directory exists for generated figures
+    output_dir = Path('general')
+    output_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Saving generated figures to: {output_dir}")
     # Create traditional 3D hill chart
     print("\n" + "="*70)
     print("Creating 3D Traditional Hill Chart (Q vs H vs η)...")
     print("="*70)
     fig1, ax1 = create_traditional_hill_chart_3d(df, metric='Overall Eff')
-    fig1.savefig('traditional_hill_chart_3d.png', dpi=300, bbox_inches='tight')
-    print("✓ Saved: traditional_hill_chart_3d.png")
+    fig1_path = output_dir / 'traditional_hill_chart_3d.png'
+    fig1.savefig(str(fig1_path), dpi=300, bbox_inches='tight')
+    print(f"✓ Saved: {fig1_path}")
     
     # Create traditional 2D contour hill chart
     print("\n" + "="*70)
     print("Creating 2D Traditional Hill Chart (Q vs H with efficiency contours)...")
     print("="*70)
     fig2, ax2 = create_traditional_hill_chart_contour(df, metric='Overall Eff')
-    fig2.savefig('traditional_hill_chart_2d.png', dpi=300, bbox_inches='tight')
-    print("✓ Saved: traditional_hill_chart_2d.png")
+    fig2_path = output_dir / 'traditional_hill_chart_2d.png'
+    fig2.savefig(str(fig2_path), dpi=300, bbox_inches='tight')
+    print(f"✓ Saved: {fig2_path}")
     
     # Create power output hill chart
     print("\n" + "="*70)
     print("Creating Power Output Hill Chart...")
     print("="*70)
     fig3, ax3 = create_power_hill_chart(df)
-    fig3.savefig('power_hill_chart_2d.png', dpi=300, bbox_inches='tight')
-    print("✓ Saved: power_hill_chart_2d.png")
+    fig3_path = output_dir / 'power_hill_chart_2d.png'
+    fig3.savefig(str(fig3_path), dpi=300, bbox_inches='tight')
+    print(f"✓ Saved: {fig3_path}")
     
     # Create mechanical efficiency chart
     print("\n" + "="*70)
     print("Creating Mechanical Efficiency Hill Chart...")
     print("="*70)
     fig4, ax4 = create_traditional_hill_chart_contour(df, metric='Mech Eff')
-    fig4.savefig('traditional_hill_chart_2d_mech_eff.png', dpi=300, bbox_inches='tight')
-    print("✓ Saved: traditional_hill_chart_2d_mech_eff.png")
+    fig4_path = output_dir / 'traditional_hill_chart_2d_mech_eff.png'
+    fig4.savefig(str(fig4_path), dpi=300, bbox_inches='tight')
+    print(f"✓ Saved: {fig4_path}")
     
     print("\n" + "="*70)
     print("ALL CHARTS GENERATED SUCCESSFULLY!")
