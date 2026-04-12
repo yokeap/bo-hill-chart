@@ -24,6 +24,8 @@ from src.visualizations import (
     create_ground_truth_2d,
     create_fibonacci_2d,
     create_error_2d,
+    create_method_3d,
+    create_method_2d,
     create_method_comparison_surfaces,
     create_bep_comparison_all_methods,
     create_bep_comparison_table_all_methods,
@@ -57,7 +59,7 @@ def main():
     print(f"Loaded {len(df)} experiments")
     
     # Parameters
-    n_samples = 30  # Target number of samples for all methods
+    n_samples = 20  # Target number of samples for all methods
     
     print(f"\n{'='*70}")
     print(f"GOLDEN RATIO-BASED SAMPLING ANALYSIS")
@@ -131,64 +133,119 @@ def main():
     print(f"\n{'='*70}")
     print("Generating figures...")
     print(f"{'='*70}")
-    
-    # Figures 1-6: Golden Ratio Method Details
+
+    def save_fig(fig, name):
+        fig.savefig(result_dir / f'{name}.png', dpi=600, bbox_inches='tight')
+        fig.savefig(result_dir / f'{name}.pdf', bbox_inches='tight')
+        plt.close(fig)
+        print(f"✓ {name}")
+
+    # Figures 1-2: Ground Truth
     fig1, _ = create_ground_truth_3d(df, 'Overall Eff')
-    fig1.savefig(result_dir / 'fig1_ground_truth_3d.png', dpi=600, bbox_inches='tight')
-    fig1.savefig(result_dir / 'fig1_ground_truth_3d.pdf', bbox_inches='tight')
-    print("✓ fig1_ground_truth_3d")
-    
-    fig2 = create_fibonacci_3d(df, fib_indices, fib_pred, bep_ground_truth, 'Overall Eff')
-    fig2.savefig(result_dir / 'fig2_fibonacci_3d.png', dpi=600, bbox_inches='tight')
-    fig2.savefig(result_dir / 'fig2_fibonacci_3d.pdf', bbox_inches='tight')
-    print("✓ fig2_fibonacci_3d (Golden Ratio)")
-    
-    fig3 = create_error_3d(df, fib_indices, fib_pred, 'Overall Eff')
-    fig3.savefig(result_dir / 'fig3_error_3d.png', dpi=600, bbox_inches='tight')
-    fig3.savefig(result_dir / 'fig3_error_3d.pdf', bbox_inches='tight')
-    print("✓ fig3_error_3d")
-    
-    fig4 = create_ground_truth_2d(df, 'Overall Eff')
-    fig4.savefig(result_dir / 'fig4_ground_truth_2d.png', dpi=600, bbox_inches='tight')
-    fig4.savefig(result_dir / 'fig4_ground_truth_2d.pdf', bbox_inches='tight')
-    print("✓ fig4_ground_truth_2d")
-    
-    fig5 = create_fibonacci_2d(df, fib_indices, fib_pred, bep_ground_truth, 'Overall Eff')
-    fig5.savefig(result_dir / 'fig5_fibonacci_2d.png', dpi=600, bbox_inches='tight')
-    fig5.savefig(result_dir / 'fig5_fibonacci_2d.pdf', bbox_inches='tight')
-    print("✓ fig5_fibonacci_2d (Golden Ratio)")
-    
-    fig6 = create_error_2d(df, fib_indices, fib_pred, 'Overall Eff')
-    fig6.savefig(result_dir / 'fig6_error_2d.png', dpi=600, bbox_inches='tight')
-    fig6.savefig(result_dir / 'fig6_error_2d.pdf', bbox_inches='tight')
-    print("✓ fig6_error_2d")
-    
-    # Figures 7-11: Method Comparison
-    fig7 = create_method_comparison_surfaces(df, method_results, 'Overall Eff')
-    fig7.savefig(result_dir / 'fig7_method_comparison_surfaces.png', dpi=600, bbox_inches='tight')
-    fig7.savefig(result_dir / 'fig7_method_comparison_surfaces.pdf', bbox_inches='tight')
-    print("✓ fig7_method_comparison_surfaces")
-    
-    fig8 = create_bep_comparison_all_methods(bep_ground_truth, method_results)
-    fig8.savefig(result_dir / 'fig8_bep_comparison_all_methods.png', dpi=600, bbox_inches='tight')
-    fig8.savefig(result_dir / 'fig8_bep_comparison_all_methods.pdf', bbox_inches='tight')
-    print("✓ fig8_bep_comparison_all_methods")
-    
-    fig9 = create_bep_comparison_table_all_methods(bep_ground_truth, method_results)
-    fig9.savefig(result_dir / 'fig9_bep_comparison_table.png', dpi=600, bbox_inches='tight')
-    fig9.savefig(result_dir / 'fig9_bep_comparison_table.pdf', bbox_inches='tight')
-    print("✓ fig9_bep_comparison_table")
-    
-    fig10 = create_method_comparison_metrics(method_results)
-    fig10.savefig(result_dir / 'fig10_method_comparison_metrics.png', dpi=600, bbox_inches='tight')
-    fig10.savefig(result_dir / 'fig10_method_comparison_metrics.pdf', bbox_inches='tight')
-    print("✓ fig10_method_comparison_metrics")
-    
-    fig11 = create_method_comparison_table(method_results)
-    fig11.savefig(result_dir / 'fig11_method_comparison_table.png', dpi=600, bbox_inches='tight')
-    fig11.savefig(result_dir / 'fig11_method_comparison_table.pdf', bbox_inches='tight')
-    print("✓ fig11_method_comparison_table")
-    
+    save_fig(fig1, 'fig1_ground_truth_3d')
+
+    fig2 = create_ground_truth_2d(df, 'Overall Eff')
+    save_fig(fig2, 'fig2_ground_truth_2d')
+
+    # Figures 3-6: Bayesian Optimization
+    fig3 = create_method_3d(df, bayesian_indices, bayesian_pred, bep_ground_truth,
+                            'Bayesian', 'lime', 'Overall Eff')
+    save_fig(fig3, 'fig3_bayesian_3d')
+
+    fig4 = create_method_2d(df, bayesian_indices, bayesian_pred, bep_ground_truth,
+                            'Bayesian', 'lime', 'Overall Eff')
+    save_fig(fig4, 'fig4_bayesian_2d')
+
+    fig5 = create_error_3d(df, bayesian_indices, bayesian_pred,
+                           'Overall Eff', method_name='Bayesian')
+    save_fig(fig5, 'fig5_bayesian_error_3d')
+
+    fig6 = create_error_2d(df, bayesian_indices, bayesian_pred,
+                           'Overall Eff', method_name='Bayesian')
+    save_fig(fig6, 'fig6_bayesian_error_2d')
+
+    # Figures 7-10: Golden Ratio (Fibonacci)
+    fig7 = create_fibonacci_3d(df, fib_indices, fib_pred, bep_ground_truth, 'Overall Eff')
+    save_fig(fig7, 'fig7_fibonacci_3d')
+
+    fig8 = create_fibonacci_2d(df, fib_indices, fib_pred, bep_ground_truth, 'Overall Eff')
+    save_fig(fig8, 'fig8_fibonacci_2d')
+
+    fig9 = create_error_3d(df, fib_indices, fib_pred,
+                           'Overall Eff', method_name='Golden Ratio (Fibonacci)')
+    save_fig(fig9, 'fig9_fibonacci_error_3d')
+
+    fig10 = create_error_2d(df, fib_indices, fib_pred,
+                            'Overall Eff', method_name='Golden Ratio (Fibonacci)')
+    save_fig(fig10, 'fig10_fibonacci_error_2d')
+
+    # Figures 11-14: Random Sampling
+    fig11 = create_method_3d(df, random_indices, random_pred, bep_ground_truth,
+                             'Random', 'red', 'Overall Eff')
+    save_fig(fig11, 'fig11_random_3d')
+
+    fig12 = create_method_2d(df, random_indices, random_pred, bep_ground_truth,
+                             'Random', 'red', 'Overall Eff')
+    save_fig(fig12, 'fig12_random_2d')
+
+    fig13 = create_error_3d(df, random_indices, random_pred,
+                            'Overall Eff', method_name='Random')
+    save_fig(fig13, 'fig13_random_error_3d')
+
+    fig14 = create_error_2d(df, random_indices, random_pred,
+                            'Overall Eff', method_name='Random')
+    save_fig(fig14, 'fig14_random_error_2d')
+
+    # Figures 15-18: Grid Sampling
+    fig15 = create_method_3d(df, grid_indices, grid_pred, bep_ground_truth,
+                             'Grid', 'blue', 'Overall Eff')
+    save_fig(fig15, 'fig15_grid_3d')
+
+    fig16 = create_method_2d(df, grid_indices, grid_pred, bep_ground_truth,
+                             'Grid', 'blue', 'Overall Eff')
+    save_fig(fig16, 'fig16_grid_2d')
+
+    fig17 = create_error_3d(df, grid_indices, grid_pred,
+                            'Overall Eff', method_name='Grid')
+    save_fig(fig17, 'fig17_grid_error_3d')
+
+    fig18 = create_error_2d(df, grid_indices, grid_pred,
+                            'Overall Eff', method_name='Grid')
+    save_fig(fig18, 'fig18_grid_error_2d')
+
+    # Figures 19-22: LHS Sampling
+    fig19 = create_method_3d(df, lhs_indices, lhs_pred, bep_ground_truth,
+                             'LHS', 'orange', 'Overall Eff')
+    save_fig(fig19, 'fig19_lhs_3d')
+
+    fig20 = create_method_2d(df, lhs_indices, lhs_pred, bep_ground_truth,
+                             'LHS', 'orange', 'Overall Eff')
+    save_fig(fig20, 'fig20_lhs_2d')
+
+    fig21 = create_error_3d(df, lhs_indices, lhs_pred,
+                            'Overall Eff', method_name='LHS')
+    save_fig(fig21, 'fig21_lhs_error_3d')
+
+    fig22 = create_error_2d(df, lhs_indices, lhs_pred,
+                            'Overall Eff', method_name='LHS')
+    save_fig(fig22, 'fig22_lhs_error_2d')
+
+    # Figures 23-27: All-method comparison charts
+    fig23 = create_method_comparison_surfaces(df, method_results, 'Overall Eff')
+    save_fig(fig23, 'fig23_method_comparison_surfaces')
+
+    fig24 = create_bep_comparison_all_methods(bep_ground_truth, method_results)
+    save_fig(fig24, 'fig24_bep_comparison_all_methods')
+
+    fig25 = create_bep_comparison_table_all_methods(bep_ground_truth, method_results)
+    save_fig(fig25, 'fig25_bep_comparison_table')
+
+    fig26 = create_method_comparison_metrics(method_results)
+    save_fig(fig26, 'fig26_method_comparison_metrics')
+
+    fig27 = create_method_comparison_table(method_results)
+    save_fig(fig27, 'fig27_method_comparison_table')
+
     # Save data files
     print(f"\nSaving data files...")
     for method_name, method_data in method_results.items():
@@ -271,8 +328,5 @@ def main():
     print(f"All results saved to: {result_dir.absolute()}")
     print(f"{'='*70}")
     
-    plt.show()
-
-
 if __name__ == "__main__":
     main()

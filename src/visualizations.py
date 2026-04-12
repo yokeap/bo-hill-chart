@@ -4,38 +4,79 @@ Visualization functions for hill chart analysis
 
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
+from mpl_toolkits.mplot3d import Axes3D  # noqa: F401
 from scipy.interpolate import griddata
 
 
+def _overlay_gv_lines_3d(ax, Q_grid, H_grid, E_grid, GV_grid, gv):
+    """Draw G/V angle iso-lines on a 3D efficiency surface"""
+    gv_levels = sorted(np.unique(gv))
+
+    # Extract 2D contour paths using a temporary figure
+    fig_tmp, ax_tmp = plt.subplots()
+    cs = ax_tmp.contour(Q_grid, H_grid, GV_grid, levels=gv_levels)
+    plt.close(fig_tmp)
+
+    q_flat = Q_grid.ravel()
+    h_flat = H_grid.ravel()
+    e_flat = E_grid.ravel()
+
+    for i, segs in enumerate(cs.allsegs):
+        gv_val = gv_levels[i]
+        labeled = False
+        for seg in segs:
+            if len(seg) < 2:
+                continue
+            q_line = seg[:, 0]
+            h_line = seg[:, 1]
+            z_line = griddata((q_flat, h_flat), e_flat,
+                              (q_line, h_line), method='linear')
+            valid = ~np.isnan(z_line)
+            if valid.sum() < 2:
+                continue
+            ax.plot(q_line[valid], h_line[valid], z_line[valid],
+                   color='white', linewidth=0.9, linestyle='--', alpha=0.85, zorder=5)
+            if not labeled:
+                mid = np.where(valid)[0][valid.sum() // 2]
+                ax.text(q_line[mid], h_line[mid], z_line[mid],
+                       f' {gv_val:.0f}°', fontsize=7, color='white',
+                       fontweight='bold', zorder=6)
+                labeled = True
+
+
 def create_ground_truth_3d(df, metric='Overall Eff', figsize=(8, 6)):
-    """Ground truth 3D surface"""
+    """Ground truth 3D surface with G/V angle iso-lines on the surface"""
     discharge = df['Dischargem'].values
     head = df['Head'].values
     efficiency = df[metric].values
-    
+    gv = df['G/V degree'].values
+
     bep_idx = efficiency.argmax()
-    bep_info = (discharge[bep_idx], head[bep_idx], efficiency[bep_idx], 
+    bep_info = (discharge[bep_idx], head[bep_idx], efficiency[bep_idx],
                 df.iloc[bep_idx]['G/V degree'])
-    
+
     discharge_grid = np.linspace(discharge.min(), discharge.max(), 100)
     head_grid = np.linspace(head.min(), head.max(), 100)
     Q_grid, H_grid = np.meshgrid(discharge_grid, head_grid)
     E_grid = griddata((discharge, head), efficiency, (Q_grid, H_grid), method='cubic')
-    
+    GV_grid = griddata((discharge, head), gv, (Q_grid, H_grid), method='linear')
+
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection='3d')
-    
-    surf = ax.plot_surface(Q_grid, H_grid, E_grid, cmap='RdYlGn', alpha=0.85,
+
+    surf = ax.plot_surface(Q_grid, H_grid, E_grid, cmap='RdYlGn', alpha=0.80,
                           edgecolor='none', antialiased=True, shade=True)
-    ax.scatter(discharge, head, efficiency, c='blue', marker='o', s=25,
-              edgecolors='darkblue', linewidths=0.5, alpha=0.7, label='Experimental data')
+    _overlay_gv_lines_3d(ax, Q_grid, H_grid, E_grid, GV_grid, gv)
+
+    ax.scatter(discharge, head, efficiency, c='blue', marker='o', s=30,
+              edgecolors='darkblue', linewidths=0.4, alpha=0.85,
+              label='Experimental data')
     ax.scatter([bep_info[0]], [bep_info[1]], [bep_info[2]], c='red', marker='*',
               s=400, edgecolors='darkred', linewidths=2, label='BEP', zorder=10)
-    
+
     cbar = fig.colorbar(surf, ax=ax, shrink=0.6, aspect=15, pad=0.08)
     cbar.set_label('Efficiency', fontsize=11)
-    
+
     ax.set_xlabel('Discharge, Q (m^3/s)', fontsize=11, labelpad=8)
     ax.set_ylabel('Head, H (m)', fontsize=11, labelpad=8)
     ax.set_zlabel('Efficiency', fontsize=11, labelpad=8)
@@ -43,7 +84,7 @@ def create_ground_truth_3d(df, metric='Overall Eff', figsize=(8, 6)):
     ax.legend(loc='upper left', fontsize=9, framealpha=0.9)
     ax.view_init(elev=18, azim=-50, roll=0)
     ax.dist = 11
-    
+
     plt.tight_layout()
     return fig, bep_info
 
@@ -106,81 +147,94 @@ def create_bayesian_3d(df, sampled_indices, y_pred, bep_ground_truth,
     return fig
 
 
-def create_error_3d(df, sampled_indices, y_pred, metric='Overall Eff', figsize=(8, 6)):
+def create_error_3d(df, sampled_indices, y_pred, metric='Overall Eff',
+                    method_name='', figsize=(8, 6)):
     """Error surface 3D"""
     discharge = df['Dischargem'].values
     head = df['Head'].values
     y_true = df[metric].values
-    
+
     discharge_grid = np.linspace(discharge.min(), discharge.max(), 100)
     head_grid = np.linspace(head.min(), head.max(), 100)
     Q_grid, H_grid = np.meshgrid(discharge_grid, head_grid)
-    
+
     E_true = griddata((discharge, head), y_true, (Q_grid, H_grid), method='cubic')
-    
+
     discharge_sampled = discharge[sampled_indices]
     head_sampled = head[sampled_indices]
     y_sampled = y_pred[sampled_indices]
-    E_pred = griddata((discharge_sampled, head_sampled), y_sampled, 
+    E_pred = griddata((discharge_sampled, head_sampled), y_sampled,
                      (Q_grid, H_grid), method='cubic')
-    
+
     E_error = np.abs(E_true - E_pred)
-    
+
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection='3d')
-    
+
     surf = ax.plot_surface(Q_grid, H_grid, E_error, cmap='Reds', alpha=0.85,
                           edgecolor='none', antialiased=True, shade=True)
-    
+
     cbar = fig.colorbar(surf, ax=ax, shrink=0.6, aspect=15, pad=0.08)
     cbar.set_label('Absolute Error', fontsize=11)
-    
+
     ax.set_xlabel('Discharge, Q (m^3/s)', fontsize=11, labelpad=8)
     ax.set_ylabel('Head, H (m)', fontsize=11, labelpad=8)
     ax.set_zlabel('Absolute Error', fontsize=11, labelpad=8)
-    ax.set_title(f'Prediction Error\nMean: {np.nanmean(E_error):.4f}', 
-                fontsize=12, pad=15)
+
+    if method_name:
+        title = f'Abs. Error: Ground Truth vs {method_name}\n(Mean: {np.nanmean(E_error):.4f})'
+    else:
+        title = f'Prediction Error\nMean: {np.nanmean(E_error):.4f}'
+    ax.set_title(title, fontsize=12, pad=15)
+
     ax.view_init(elev=18, azim=-50, roll=0)
     ax.dist = 11
-    
+
     plt.tight_layout()
     return fig
 
 
 def create_ground_truth_2d(df, metric='Overall Eff', figsize=(6, 5)):
-    """Ground truth 2D contour"""
+    """Ground truth 2D contour with guide vane angle iso-lines"""
     discharge = df['Dischargem'].values
     head = df['Head'].values
     efficiency = df[metric].values
-    
+    gv = df['G/V degree'].values
+
     bep_idx = efficiency.argmax()
-    
+
     discharge_grid = np.linspace(discharge.min(), discharge.max(), 150)
     head_grid = np.linspace(head.min(), head.max(), 150)
     Q_grid, H_grid = np.meshgrid(discharge_grid, head_grid)
     E_grid = griddata((discharge, head), efficiency, (Q_grid, H_grid), method='cubic')
-    
+    GV_grid = griddata((discharge, head), gv, (Q_grid, H_grid), method='linear')
+
     fig, ax = plt.subplots(figsize=figsize)
-    
+
     levels = np.linspace(np.nanmin(E_grid), np.nanmax(E_grid), 25)
     cf = ax.contourf(Q_grid, H_grid, E_grid, levels=levels, cmap='RdYlGn', alpha=0.95)
-    
+
+    # Guide vane angle iso-lines
+    gv_levels = sorted(np.unique(gv))
+    cs = ax.contour(Q_grid, H_grid, GV_grid, levels=gv_levels,
+                   colors='white', linewidths=0.9, linestyles='--', alpha=0.8)
+    ax.clabel(cs, inline=True, fontsize=7, fmt='%.0f°')
+
     ax.scatter(discharge, head, c='blue', marker='o', s=30,
               edgecolors='darkblue', linewidths=0.8, alpha=0.7,
               label='Experimental data', zorder=5)
-    
     ax.scatter([discharge[bep_idx]], [head[bep_idx]], c='red', marker='*',
               s=300, edgecolors='darkred', linewidths=2, label='BEP', zorder=10)
-    
+
     cbar = plt.colorbar(cf, ax=ax, pad=0.02)
     cbar.set_label('Efficiency', fontsize=11)
-    
+
     ax.set_xlabel('Discharge, Q (m^3/s)', fontsize=11)
     ax.set_ylabel('Head, H (m)', fontsize=11)
     ax.set_title(f'Ground Truth ({len(df)} exp)', fontsize=12, pad=10)
     ax.legend(loc='best', fontsize=9, framealpha=0.9)
     ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
-    
+
     plt.tight_layout()
     return fig
 
@@ -227,39 +281,45 @@ def create_bayesian_2d(df, sampled_indices, y_pred, bep_ground_truth,
     return fig
 
 
-def create_error_2d(df, sampled_indices, y_pred, metric='Overall Eff', figsize=(6, 5)):
+def create_error_2d(df, sampled_indices, y_pred, metric='Overall Eff',
+                    method_name='', figsize=(6, 5)):
     """Error 2D contour"""
     discharge = df['Dischargem'].values
     head = df['Head'].values
     y_true = df[metric].values
-    
+
     discharge_grid = np.linspace(discharge.min(), discharge.max(), 150)
     head_grid = np.linspace(head.min(), head.max(), 150)
     Q_grid, H_grid = np.meshgrid(discharge_grid, head_grid)
-    
+
     E_true = griddata((discharge, head), y_true, (Q_grid, H_grid), method='cubic')
-    
+
     discharge_sampled = discharge[sampled_indices]
     head_sampled = head[sampled_indices]
     y_sampled = y_pred[sampled_indices]
-    E_pred = griddata((discharge_sampled, head_sampled), y_sampled, 
+    E_pred = griddata((discharge_sampled, head_sampled), y_sampled,
                      (Q_grid, H_grid), method='cubic')
-    
+
     E_error = np.abs(E_true - E_pred)
-    
+
     fig, ax = plt.subplots(figsize=figsize)
-    
+
     cf = ax.contourf(Q_grid, H_grid, E_error, levels=20, cmap='Reds', alpha=0.95)
-    
+
     cbar = plt.colorbar(cf, ax=ax, pad=0.02)
     cbar.set_label('Absolute Error', fontsize=11)
-    
+
     ax.set_xlabel('Discharge, Q (m^3/s)', fontsize=11)
     ax.set_ylabel('Head, H (m)', fontsize=11)
-    ax.set_title(f'Prediction Error (Mean: {np.nanmean(E_error):.4f})', 
-                fontsize=12, pad=10)
+
+    if method_name:
+        title = f'Abs. Error: Ground Truth vs {method_name}\n(Mean: {np.nanmean(E_error):.4f})'
+    else:
+        title = f'Prediction Error (Mean: {np.nanmean(E_error):.4f})'
+    ax.set_title(title, fontsize=12, pad=10)
+
     ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
-    
+
     plt.tight_layout()
     return fig
 
@@ -546,102 +606,214 @@ def create_method_comparison_table(method_results, figsize=(11, 4)):
     plt.tight_layout()
     return fig
 
-def create_fibonacci_3d(df, sampled_indices, y_pred, bep_ground_truth, 
-                        metric='Overall Eff', figsize=(8, 6)):
-    """Golden Ratio (Fibonacci) prediction 3D surface"""
+
+def create_method_3d(df, sampled_indices, y_pred, bep_ground_truth,
+                     method_name, sample_color, metric='Overall Eff', figsize=(8, 6)):
+    """Generic prediction 3D surface for any sampling method, with G/V angle iso-lines"""
     discharge = df['Dischargem'].values
     head = df['Head'].values
-    
+    gv = df['G/V degree'].values
+
     discharge_sampled = discharge[sampled_indices]
     head_sampled = head[sampled_indices]
     y_sampled = y_pred[sampled_indices]
-    
-    # Find Fibonacci BEP
+
+    bep_idx = np.argmax(y_sampled)
+    method_bep = {
+        'discharge': discharge_sampled[bep_idx],
+        'head': head_sampled[bep_idx],
+        'efficiency': y_sampled[bep_idx],
+    }
+
+    discharge_grid = np.linspace(discharge.min(), discharge.max(), 100)
+    head_grid = np.linspace(head.min(), head.max(), 100)
+    Q_grid, H_grid = np.meshgrid(discharge_grid, head_grid)
+    E_grid = griddata((discharge_sampled, head_sampled), y_sampled,
+                     (Q_grid, H_grid), method='cubic')
+    GV_grid = griddata((discharge, head), gv, (Q_grid, H_grid), method='linear')
+
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(111, projection='3d')
+
+    surf = ax.plot_surface(Q_grid, H_grid, E_grid, cmap='RdYlGn', alpha=0.80,
+                          edgecolor='none', antialiased=True, shade=True)
+    _overlay_gv_lines_3d(ax, Q_grid, H_grid, E_grid, GV_grid, gv)
+
+    ax.scatter(discharge_sampled, head_sampled, y_sampled, c=sample_color, marker='o', s=60,
+              edgecolors='black', linewidths=1, alpha=0.9,
+              label=f'{method_name} samples')
+    ax.scatter([bep_ground_truth[0]], [bep_ground_truth[1]], [bep_ground_truth[2]],
+              c='gold', marker='*', s=400, edgecolors='black', linewidths=2,
+              label='BEP (ground truth)', zorder=10)
+    ax.scatter([method_bep['discharge']], [method_bep['head']],
+              [method_bep['efficiency']], c='lime', marker='*', s=400,
+              edgecolors='black', linewidths=2, label=f'BEP ({method_name})', zorder=10)
+
+    cbar = fig.colorbar(surf, ax=ax, shrink=0.6, aspect=15, pad=0.08)
+    cbar.set_label('Efficiency', fontsize=11)
+
+    ax.set_xlabel('Discharge, Q (m^3/s)', fontsize=11, labelpad=8)
+    ax.set_ylabel('Head, H (m)', fontsize=11, labelpad=8)
+    ax.set_zlabel('Efficiency', fontsize=11, labelpad=8)
+    ax.set_title(f'{method_name} Prediction\n({len(sampled_indices)} experiments)',
+                fontsize=12, pad=15)
+    ax.legend(loc='upper left', fontsize=9, framealpha=0.9)
+    ax.view_init(elev=18, azim=-50, roll=0)
+    ax.dist = 11
+
+    plt.tight_layout()
+    return fig
+
+
+def create_method_2d(df, sampled_indices, y_pred, bep_ground_truth,
+                     method_name, sample_color, metric='Overall Eff', figsize=(6, 5)):
+    """Generic prediction 2D contour for any sampling method, with G/V angle iso-lines"""
+    discharge = df['Dischargem'].values
+    head = df['Head'].values
+    gv = df['G/V degree'].values
+
+    discharge_sampled = discharge[sampled_indices]
+    head_sampled = head[sampled_indices]
+    y_sampled = y_pred[sampled_indices]
+
+    discharge_grid = np.linspace(discharge.min(), discharge.max(), 150)
+    head_grid = np.linspace(head.min(), head.max(), 150)
+    Q_grid, H_grid = np.meshgrid(discharge_grid, head_grid)
+    E_grid = griddata((discharge_sampled, head_sampled), y_sampled,
+                     (Q_grid, H_grid), method='cubic')
+    GV_grid = griddata((discharge, head), gv, (Q_grid, H_grid), method='linear')
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    levels = np.linspace(np.nanmin(E_grid), np.nanmax(E_grid), 25)
+    cf = ax.contourf(Q_grid, H_grid, E_grid, levels=levels, cmap='RdYlGn', alpha=0.95)
+
+    gv_levels = sorted(np.unique(gv))
+    cs = ax.contour(Q_grid, H_grid, GV_grid, levels=gv_levels,
+                   colors='white', linewidths=0.9, linestyles='--', alpha=0.8)
+    ax.clabel(cs, inline=True, fontsize=7, fmt='%.0f°')
+
+    ax.scatter(discharge_sampled, head_sampled, c=sample_color, marker='o', s=50,
+              edgecolors='black', linewidths=1.2, alpha=0.9,
+              label=f'{method_name} samples', zorder=5)
+    ax.scatter([bep_ground_truth[0]], [bep_ground_truth[1]], c='gold', marker='*',
+              s=300, edgecolors='black', linewidths=2,
+              label='BEP (ground truth)', zorder=10)
+
+    cbar = plt.colorbar(cf, ax=ax, pad=0.02)
+    cbar.set_label('Efficiency', fontsize=11)
+
+    ax.set_xlabel('Discharge, Q (m^3/s)', fontsize=11)
+    ax.set_ylabel('Head, H (m)', fontsize=11)
+    ax.set_title(f'{method_name} Prediction ({len(sampled_indices)} exp)', fontsize=12, pad=10)
+    ax.legend(loc='best', fontsize=9, framealpha=0.9)
+    ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
+
+    plt.tight_layout()
+    return fig
+
+
+def create_fibonacci_3d(df, sampled_indices, y_pred, bep_ground_truth,
+                        metric='Overall Eff', figsize=(8, 6)):
+    """Golden Ratio (Fibonacci) prediction 3D surface with G/V angle iso-lines"""
+    discharge = df['Dischargem'].values
+    head = df['Head'].values
+    gv = df['G/V degree'].values
+
+    discharge_sampled = discharge[sampled_indices]
+    head_sampled = head[sampled_indices]
+    y_sampled = y_pred[sampled_indices]
+
     bep_idx = np.argmax(y_sampled)
     fibonacci_bep = {
         'discharge': discharge_sampled[bep_idx],
         'head': head_sampled[bep_idx],
         'efficiency': y_sampled[bep_idx],
-        'gv': df.iloc[sampled_indices[bep_idx]]['G/V degree']
     }
-    
+
     discharge_grid = np.linspace(discharge.min(), discharge.max(), 100)
     head_grid = np.linspace(head.min(), head.max(), 100)
     Q_grid, H_grid = np.meshgrid(discharge_grid, head_grid)
-    E_grid = griddata((discharge_sampled, head_sampled), y_sampled, 
+    E_grid = griddata((discharge_sampled, head_sampled), y_sampled,
                      (Q_grid, H_grid), method='cubic')
-    
+    GV_grid = griddata((discharge, head), gv, (Q_grid, H_grid), method='linear')
+
     fig = plt.figure(figsize=figsize)
     ax = fig.add_subplot(111, projection='3d')
-    
-    surf = ax.plot_surface(Q_grid, H_grid, E_grid, cmap='RdYlGn', alpha=0.85,
+
+    surf = ax.plot_surface(Q_grid, H_grid, E_grid, cmap='RdYlGn', alpha=0.80,
                           edgecolor='none', antialiased=True, shade=True)
-    
+    _overlay_gv_lines_3d(ax, Q_grid, H_grid, E_grid, GV_grid, gv)
+
     ax.scatter(discharge_sampled, head_sampled, y_sampled, c='magenta', marker='o', s=60,
-              edgecolors='darkmagenta', linewidths=1.5, alpha=0.9, 
+              edgecolors='darkmagenta', linewidths=1, alpha=0.9,
               label='Golden Ratio samples')
-    
     ax.scatter([bep_ground_truth[0]], [bep_ground_truth[1]], [bep_ground_truth[2]],
               c='gold', marker='*', s=400, edgecolors='black', linewidths=2,
               label='BEP (ground truth)', zorder=10)
-    
-    ax.scatter([fibonacci_bep['discharge']], [fibonacci_bep['head']], 
-              [fibonacci_bep['efficiency']], c='lime', marker='*', s=400, 
+    ax.scatter([fibonacci_bep['discharge']], [fibonacci_bep['head']],
+              [fibonacci_bep['efficiency']], c='lime', marker='*', s=400,
               edgecolors='black', linewidths=2, label='BEP (Golden Ratio)', zorder=10)
-    
+
     cbar = fig.colorbar(surf, ax=ax, shrink=0.6, aspect=15, pad=0.08)
     cbar.set_label('Efficiency', fontsize=11)
-    
+
     ax.set_xlabel('Discharge, Q (m^3/s)', fontsize=11, labelpad=8)
     ax.set_ylabel('Head, H (m)', fontsize=11, labelpad=8)
     ax.set_zlabel('Efficiency', fontsize=11, labelpad=8)
-    ax.set_title(f'Golden Ratio (Fibonacci Spiral) Prediction\n({len(sampled_indices)} experiments)', 
+    ax.set_title(f'Golden Ratio (Fibonacci Spiral) Prediction\n({len(sampled_indices)} experiments)',
                 fontsize=12, pad=15)
     ax.legend(loc='upper left', fontsize=9, framealpha=0.9)
     ax.view_init(elev=18, azim=-50, roll=0)
     ax.dist = 11
-    
+
     plt.tight_layout()
     return fig
 
 
-def create_fibonacci_2d(df, sampled_indices, y_pred, bep_ground_truth, 
+def create_fibonacci_2d(df, sampled_indices, y_pred, bep_ground_truth,
                         metric='Overall Eff', figsize=(6, 5)):
-    """Golden Ratio (Fibonacci) prediction 2D contour"""
+    """Golden Ratio (Fibonacci) prediction 2D contour with G/V angle iso-lines"""
     discharge = df['Dischargem'].values
     head = df['Head'].values
-    
+    gv = df['G/V degree'].values
+
     discharge_sampled = discharge[sampled_indices]
     head_sampled = head[sampled_indices]
     y_sampled = y_pred[sampled_indices]
-    
+
     discharge_grid = np.linspace(discharge.min(), discharge.max(), 150)
     head_grid = np.linspace(head.min(), head.max(), 150)
     Q_grid, H_grid = np.meshgrid(discharge_grid, head_grid)
-    E_grid = griddata((discharge_sampled, head_sampled), y_sampled, 
+    E_grid = griddata((discharge_sampled, head_sampled), y_sampled,
                      (Q_grid, H_grid), method='cubic')
-    
+    GV_grid = griddata((discharge, head), gv, (Q_grid, H_grid), method='linear')
+
     fig, ax = plt.subplots(figsize=figsize)
-    
+
     levels = np.linspace(np.nanmin(E_grid), np.nanmax(E_grid), 25)
     cf = ax.contourf(Q_grid, H_grid, E_grid, levels=levels, cmap='RdYlGn', alpha=0.95)
-    
+
+    gv_levels = sorted(np.unique(gv))
+    cs = ax.contour(Q_grid, H_grid, GV_grid, levels=gv_levels,
+                   colors='white', linewidths=0.9, linestyles='--', alpha=0.8)
+    ax.clabel(cs, inline=True, fontsize=7, fmt='%.0f°')
+
     ax.scatter(discharge_sampled, head_sampled, c='magenta', marker='o', s=50,
               edgecolors='darkmagenta', linewidths=1.2, alpha=0.9,
               label='Golden Ratio samples', zorder=5)
-    
     ax.scatter([bep_ground_truth[0]], [bep_ground_truth[1]], c='gold', marker='*',
               s=300, edgecolors='black', linewidths=2,
               label='BEP (ground truth)', zorder=10)
-    
+
     cbar = plt.colorbar(cf, ax=ax, pad=0.02)
     cbar.set_label('Efficiency', fontsize=11)
-    
+
     ax.set_xlabel('Discharge, Q (m^3/s)', fontsize=11)
     ax.set_ylabel('Head, H (m)', fontsize=11)
     ax.set_title(f'Golden Ratio Prediction ({len(sampled_indices)} exp)', fontsize=12, pad=10)
     ax.legend(loc='best', fontsize=9, framealpha=0.9)
     ax.grid(True, alpha=0.2, linestyle='--', linewidth=0.5)
-    
+
     plt.tight_layout()
     return fig
