@@ -749,7 +749,7 @@ def create_fibonacci_3d(df, sampled_indices, y_pred, bep_ground_truth,
               edgecolors='darkmagenta', linewidths=1, alpha=0.9,
               label='Golden Ratio samples')
     ax.scatter([bep_ground_truth[0]], [bep_ground_truth[1]], [bep_ground_truth[2]],
-              c='gold', marker='*', s=400, edgecolors='black', linewidths=2,
+              c='red', marker='*', s=400, edgecolors='darkred', linewidths=2,
               label='BEP (ground truth)', zorder=10)
     ax.scatter([fibonacci_bep['discharge']], [fibonacci_bep['head']],
               [fibonacci_bep['efficiency']], c='lime', marker='*', s=400,

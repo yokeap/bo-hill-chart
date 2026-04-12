@@ -83,40 +83,40 @@ def simulate_fibonacci_spiral_sampling(df, n_samples=30, metric='Overall Eff'):
     # Step 2: Fibonacci spiral points (22 points) with domain transformation
     # ========================================================================
     n_fibonacci = n_samples - n_strategic
-    
+
     # Golden ratio and angle
     phi = (1 + np.sqrt(5)) / 2
     golden_angle = 2 * np.pi / (phi ** 2)
-    
+
     fibonacci_points = []
-    
+
     for i in range(n_fibonacci):
         # Modified radius for better space-filling (offset to avoid center clustering)
         radius = np.sqrt((i + 0.5) / n_fibonacci)
         angle = i * golden_angle
-        
+
         # Convert to coordinates in unit square [0, 1] x [0, 1]
         x = 0.5 + radius * np.cos(angle) * 0.9  # Scale to 0.9 to stay within bounds
         y = 0.5 + radius * np.sin(angle) * 0.9
-        
+
         # Clip to ensure within [0, 1]
         x = np.clip(x, 0, 1)
         y = np.clip(y, 0, 1)
-        
+
         # Transform to actual discharge-head space with trapezoidal boundary adaptation
         h_scaled = h_min + y * (h_max - h_min)
-        
+
         # Find closest actual head level
         h_actual = unique_heads[np.argmin(np.abs(unique_heads - h_scaled))]
-        
+
         # Get valid discharge range at this head (trapezoidal adaptation)
         q_range = head_boundaries.get(h_actual, (q_min, q_max))
-        
+
         # Scale discharge based on the valid range at this specific head
         q_scaled = q_range[0] + x * (q_range[1] - q_range[0])
-        
+
         fibonacci_points.append((q_scaled, h_actual))
-    
+
     # ========================================================================
     # Step 3: Map target points to actual data points
     # ========================================================================

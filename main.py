@@ -59,7 +59,7 @@ def main():
     print(f"Loaded {len(df)} experiments")
     
     # Parameters
-    n_samples = 20  # Target number of samples for all methods
+    n_samples = 30  # Target number of samples for all methods
     
     print(f"\n{'='*70}")
     print(f"GOLDEN RATIO-BASED SAMPLING ANALYSIS")
